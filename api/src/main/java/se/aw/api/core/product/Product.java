@@ -1,5 +1,8 @@
 package se.aw.api.core.product;
 
+import lombok.Builder;
+
+@Builder
 public class Product {
 
     private final int productId;
