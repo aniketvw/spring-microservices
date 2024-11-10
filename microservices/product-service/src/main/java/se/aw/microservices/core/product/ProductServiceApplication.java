@@ -6,6 +6,7 @@ import org.springframework.context.annotation.ComponentScan;
 
 @SpringBootApplication
 @ComponentScan("se.aw")
+
 public class ProductServiceApplication {
 
 	public static void main(String[] args) {
