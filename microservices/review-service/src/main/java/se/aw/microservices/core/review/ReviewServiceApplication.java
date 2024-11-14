@@ -7,6 +7,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.context.annotation.ComponentScan;
+import se.aw.microservices.core.review.persistence.ReviewEntity;
 
 @SpringBootApplication(exclude = DataSourceAutoConfiguration.class)
 @ComponentScan("se.aw")
