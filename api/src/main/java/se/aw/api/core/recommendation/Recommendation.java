@@ -16,6 +16,7 @@ public class Recommendation {
         content = null;
         serviceAddress = null;
     }
+
     public Recommendation(int productId, int recommendationId, String author, int rate, String content, String serviceAddress) {
         this.productId = productId;
         this.recommendationId = recommendationId;
@@ -24,6 +25,7 @@ public class Recommendation {
         this.content = content;
         this.serviceAddress = serviceAddress;
     }
+
     public int getProductId() {
         return productId;
     }

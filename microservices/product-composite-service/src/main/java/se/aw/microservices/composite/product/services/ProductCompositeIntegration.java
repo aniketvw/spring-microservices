@@ -85,6 +85,28 @@ public class ProductCompositeIntegration implements ProductService, Recommendati
         }
     }
 
+    @Override
+    public Product createProduct(Product body) {
+        try{
+            return restTemplate.postForObject(productServiceUrl,body, Product.class);
+        }catch (HttpClientErrorException ex){
+            throw handleHttpClientException(ex);
+        }
+    }
+
+    @Override
+    public void deleteProduct(int productId) {
+        try {
+            String url = productServiceUrl + "/" + productId;
+            LOG.debug("Will call the deleteProduct API on URL: {}", url);
+
+            restTemplate.delete(url);
+
+        } catch (HttpClientErrorException ex) {
+            throw handleHttpClientException(ex);
+        }
+    }
+
     private String getErrorMessage(HttpClientErrorException ex){
         try {
             return mapper.readValue(ex.getResponseBodyAsString(),
@@ -111,6 +133,35 @@ public class ProductCompositeIntegration implements ProductService, Recommendati
         }
     }
 
+    @Override
+    public Recommendation createRecommendation(Recommendation body) {
+        try {
+            String url = recommendationServiceUrl;
+            LOG.debug("Will post a new recommendation to URL: {}", url);
+
+            Recommendation recommendation = restTemplate.postForObject(url, body, Recommendation.class);
+            LOG.debug("Created a recommendation with id: {}", recommendation.getProductId());
+
+            return recommendation;
+
+        } catch (HttpClientErrorException ex) {
+            throw handleHttpClientException(ex);
+        }
+    }
+
+    @Override
+    public void deleteRecommendations(int productId) {
+        try {
+            String url = recommendationServiceUrl + "?productId=" + productId;
+            LOG.debug("Will call the deleteRecommendations API on URL: {}", url);
+
+            restTemplate.delete(url);
+
+        } catch (HttpClientErrorException ex) {
+            throw handleHttpClientException(ex);
+        }
+    }
+
     public List<Review> getReviews(int productId) {
 
         try {
@@ -127,6 +178,49 @@ public class ProductCompositeIntegration implements ProductService, Recommendati
             return new ArrayList<>();
         }
     }
+
+    @Override
+    public Review createReview(Review body) {
+
+        try {
+            String url = reviewServiceUrl;
+            LOG.debug("Will post a new review to URL: {}", url);
+
+            Review review = restTemplate.postForObject(url, body, Review.class);
+            LOG.debug("Created a review with id: {}", review.getProductId());
+
+            return review;
+
+        } catch (HttpClientErrorException ex) {
+            throw handleHttpClientException(ex);
+        }
+    }
+
+    @Override
+    public void deleteReviews(int productId) {
+        try {
+            String url = reviewServiceUrl + "?productId=" + productId;
+            LOG.debug("Will call the deleteReviews API on URL: {}", url);
+
+            restTemplate.delete(url);
+
+        } catch (HttpClientErrorException ex) {
+            throw handleHttpClientException(ex);
+        }
+    }
+
+    private RuntimeException handleHttpClientException(HttpClientErrorException ex){
+        HttpStatusCode statusCode = ex.getStatusCode();
+        if (statusCode.equals(NOT_FOUND)) {
+            return new NotFoundException(getErrorMessage(ex));
+        } else if (statusCode.equals(UNPROCESSABLE_ENTITY)) {
+            return new InvalidInputException(getErrorMessage(ex));
+        }else{LOG.warn("Got a unexpected HTTP error: {}, will rethrow it", ex.getStatusCode());
+        LOG.warn("Error body: {}", ex.getResponseBodyAsString());
+        return ex;
+        }
+    }
+
 
 
 }
