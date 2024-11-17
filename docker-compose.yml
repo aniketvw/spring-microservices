@@ -51,7 +51,7 @@ services:
 
   # $ mysql -uroot -h127.0.0.1 -p
   mysql:
-    image: mysql:latest
+    image: mysql:8.0.29
     mem_limit: 512m
     ports:
       - "3306:3306"
