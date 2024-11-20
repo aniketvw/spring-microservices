@@ -12,11 +12,12 @@ public interface ReviewService {
     List<Review> getReviews(@RequestParam(value = "productId", required = true) int productId);
 
     @PostMapping(value = "/review",
-    consumes = "/application/json",
+    consumes = "application/json",
     produces = "application/json")
     Review createReview(@RequestBody Review body);
 
     @DeleteMapping(value = "/review")
     void deleteReviews(@RequestParam(value = "productId", required = true)  int productId);
+
 
 }
