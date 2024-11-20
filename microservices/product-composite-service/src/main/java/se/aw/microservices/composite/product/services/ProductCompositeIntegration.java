@@ -58,7 +58,7 @@ public class ProductCompositeIntegration implements ProductService, Recommendati
         this.restTemplate = restTemplate;
         this.mapper = mapper;
 
-        productServiceUrl = "http://" + productServiceHost + ":" + productServicePort + "/product/";
+        productServiceUrl = "http://" + productServiceHost + ":" + productServicePort + "/product";
         recommendationServiceUrl = "http://" + recommendationServiceHost + ":" + recommendationServicePort + "/recommendation?productId=";
         reviewServiceUrl = "http://" + reviewServiceHost + ":" + reviewServicePort + "/review?productId=";
     }
@@ -88,7 +88,13 @@ public class ProductCompositeIntegration implements ProductService, Recommendati
     @Override
     public Product createProduct(Product body) {
         try{
-            return restTemplate.postForObject(productServiceUrl,body, Product.class);
+            String url = productServiceUrl;
+            LOG.info("Will post a new product to URL: {}", url);
+
+            Product product = restTemplate.postForObject(url, body, Product.class);
+            LOG.info("Created a product with id: {}", product.getProductId());
+
+            return product;
         }catch (HttpClientErrorException ex){
             throw handleHttpClientException(ex);
         }

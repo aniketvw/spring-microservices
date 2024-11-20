@@ -2,7 +2,7 @@ server.port: 7002
 server.error.include-message: always
 
 spring.data.mongodb:
-  host: mongodb
+  host: localhost
   port: 27017
   database: recommendation-db
 
@@ -16,5 +16,8 @@ spring:
   config:
     activate:
       on-profile: docker
+
+spring.data.mongodb.host: mongodb
+
 
 server.port: 8080
