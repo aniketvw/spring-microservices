@@ -5,6 +5,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.RestController;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 import se.aw.api.core.recommendation.Recommendation;
 import se.aw.api.core.recommendation.RecommendationService;
 import se.aw.microservices.core.recommendation.persistence.RecommendationEntity;
@@ -34,32 +36,32 @@ public class RecommendationServiceImpl implements RecommendationService {
     }
 
     @Override
-    public List<Recommendation> getRecommendations(int productId) {
+    public Flux<Recommendation> getRecommendations(int productId) {
 
         if (productId < 1) throw new InvalidInputException("Invalid productId: " + productId);
 
-        List<RecommendationEntity> entityList = repository.findByProductId(productId);
-        List<Recommendation> list= mapper.entityToApiList(entityList);
-        list.forEach(e-> e.setServiceAddress(serviceUtil.getServiceAddress()));
+        return repository.findByProductId(productId).log().map(mapper::entityToApi).
+                map(r->{
+                    r.setServiceAddress(serviceUtil.getServiceAddress());
+                    return r;
+                });
 
-        LOG.debug("getRecommendations: response size: {}", list.size());
 
-        return list;
+//        map r->r.setServiceAddress(serviceUtil.getServiceAddress()); this will not return anything, so we give return
+        // explicitly by writing a method.In reactive programming, transformations (map) must produce a value for the next stage in the reactive chain. If a map function returns void (or no value), the chain becomes invalid or produces unexpected results.
     }
 
     @Override
     public Recommendation createRecommendation(Recommendation body) {
-        try {
-            RecommendationEntity entity=mapper.apiToEntity(body);
-            RecommendationEntity newEntity=repository.save(entity);
+        if (body.getProductId() < 1) throw new InvalidInputException("Invalid productId: " + body.getProductId());
 
-            LOG.debug("createRecommendation: created a recommendation entity: {}/{}", body.getProductId(), body.getRecommendationId());
-            return  mapper.entityToApi(newEntity);
+        RecommendationEntity entity=mapper.apiToEntity(body);
 
+        Mono<Recommendation> newEntity=repository.save(entity).log()
+                .onErrorMap(DuplicateKeyException.class, ex->new InvalidInputException("Duplicate key, Product Id: " + body.getProductId() + ", Recommendation Id:" + body.getRecommendationId()))
+                .map(r->mapper.entityToApi(r));
+        return newEntity.block();
 
-        }catch (DuplicateKeyException dke){
-            throw new InvalidInputException("Duplicate key, Product Id: " + body.getProductId() + ", Recommendation Id:" + body.getRecommendationId());
-        }
     }
 
     @Override

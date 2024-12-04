@@ -3,8 +3,12 @@ package se.aw.microservices.core.review.services;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.web.bind.annotation.RestController;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Scheduler;
 import se.aw.api.core.review.Review;
 import se.aw.api.core.review.ReviewService;
 import se.aw.microservices.core.review.persistence.ReviewEntity;
@@ -13,6 +17,8 @@ import se.aw.util.exceptions.InvalidInputException;
 import se.aw.util.http.ServiceUtil;
 
 import java.util.List;
+import java.util.List;
+import java.util.logging.Level;
 
 @RestController
 public class ReviewServiceImpl implements ReviewService {private static final Logger LOG = LoggerFactory.getLogger(ReviewServiceImpl.class);
@@ -23,11 +29,14 @@ public class ReviewServiceImpl implements ReviewService {private static final Lo
 
     private final ServiceUtil serviceUtil;
 
+    private final Scheduler jdbcScheduler;
+
     @Autowired
-    public ReviewServiceImpl(ReviewRepository repository, ReviewMapper mapper, ServiceUtil serviceUtil) {
+    public ReviewServiceImpl(ReviewRepository repository, ReviewMapper mapper, ServiceUtil serviceUtil, @Qualifier("jdbcScheduler")Scheduler jdbcScheduler) {
         this.repository = repository;
         this.mapper = mapper;
         this.serviceUtil = serviceUtil;
+        this.jdbcScheduler=jdbcScheduler;
     }
 
     @Override
@@ -45,22 +54,33 @@ public class ReviewServiceImpl implements ReviewService {private static final Lo
     }
 
     @Override
-    public List<Review> getReviews(int productId) {
+    public Flux<Review> getReviews(int productId) {
 
         if (productId < 1) throw new InvalidInputException("Invalid productId: " + productId);
 
-        List<ReviewEntity> entityList = repository.findByProductId(productId);
-        List<Review> list = mapper.entityListToApiList(entityList);
-        list.forEach(e -> e.setServiceAddress(serviceUtil.getServiceAddress()));
+        LOG.info("Will get reviews for product with id={}",productId);
 
-        LOG.debug("getReviews: response size: {}", list.size());
+        return Mono.fromCallable(()->internalGetReviews(productId)).flatMapMany(Flux::fromIterable)
+                .log(LOG.getName(), Level.FINE)
+                .subscribeOn(jdbcScheduler);
 
-        return list;
+
     }
 
     @Override
     public void deleteReviews(int productId) {
         LOG.debug("deleteReviews: tries to delete reviews for the product with productId: {}", productId);
         repository.deleteAll(repository.findByProductId(productId));
+    }
+
+    private List internalGetReviews(int productId){
+        List<ReviewEntity> entityList=repository
+                .findByProductId(productId);
+        List<Review> list=mapper.entityListToApiList(entityList);
+        list.forEach(l->l.setServiceAddress(serviceUtil.getServiceAddress()));
+
+        LOG.debug("Response size:{}", list.size());
+        return list;
+
     }
 }
