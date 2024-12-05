@@ -5,11 +5,14 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.reactive.function.client.WebClientResponseException;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 import se.aw.api.core.product.Product;
 import se.aw.api.core.product.ProductService;
 import se.aw.api.core.recommendation.Recommendation;
@@ -21,12 +24,11 @@ import se.aw.util.exceptions.NotFoundException;
 import se.aw.util.http.HttpErrorInfo;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.logging.Level;
 
-import static org.springframework.http.HttpMethod.GET;
 import static org.springframework.http.HttpStatus.NOT_FOUND;
 import static org.springframework.http.HttpStatus.UNPROCESSABLE_ENTITY;
+import static reactor.core.publisher.Flux.empty;
 
 @Component
 public class ProductCompositeIntegration implements ProductService, RecommendationService, ReviewService {
@@ -39,6 +41,7 @@ public class ProductCompositeIntegration implements ProductService, Recommendati
     private final String productServiceUrl;
     private final String recommendationServiceUrl;
     private final String reviewServiceUrl;
+    private final WebClient webClient;
 
     @Autowired
     public ProductCompositeIntegration(
@@ -52,38 +55,35 @@ public class ProductCompositeIntegration implements ProductService, Recommendati
             @Value("${app.recommendation-service.port}") int recommendationServicePort,
 
             @Value("${app.review-service.host}") String reviewServiceHost,
-            @Value("${app.review-service.port}") int reviewServicePort
+            @Value("${app.review-service.port}") int reviewServicePort,
+            WebClient.Builder webClient
     ) {
 
         this.restTemplate = restTemplate;
         this.mapper = mapper;
+        this.webClient=webClient.build();
 
         productServiceUrl = "http://" + productServiceHost + ":" + productServicePort + "/product";
         recommendationServiceUrl = "http://" + recommendationServiceHost + ":" + recommendationServicePort + "/recommendation?productId=";
         reviewServiceUrl = "http://" + reviewServiceHost + ":" + reviewServicePort + "/review?productId=";
     }
 
-    public Product getProduct(int productId){
-        try{
+    public Mono<Product> getProduct(int productId){
+
             String url=productServiceUrl+productId;
             LOG.debug("Will call getProduct API on URL: {}", url);
 
-            Product product=restTemplate.getForObject(url, Product.class);
-            LOG.debug("Found a product with id: {}", product.getProductId());
+            return webClient.get().uri(url)
+                    .retrieve()
+                    .bodyToMono(Product.class)
+                    .log(LOG.getName(), Level.FINE)
+                    .onErrorMap(WebClientResponseException.class,
+                            ex->handleException(ex));
 
-            return product;
-        }catch (HttpClientErrorException ex){
-            HttpStatusCode statusCode = ex.getStatusCode();
-            if (statusCode.equals(NOT_FOUND)) {
-                throw new NotFoundException(getErrorMessage(ex));
-            } else if (statusCode.equals(UNPROCESSABLE_ENTITY)) {
-                throw new InvalidInputException(getErrorMessage(ex));
-            }
-            LOG.warn("Got a unexpected HTTP error: {}, will rethrow it", ex.getStatusCode());
-            LOG.warn("Error body: {}", ex.getResponseBodyAsString());
-            throw ex;
-        }
     }
+
+
+
 
     @Override
     public Product createProduct(Product body) {
@@ -91,7 +91,8 @@ public class ProductCompositeIntegration implements ProductService, Recommendati
             String url = productServiceUrl;
             LOG.info("Will post a new product to URL: {}", url);
 
-            Product product = restTemplate.postForObject(url, body, Product.class);
+
+
             LOG.info("Created a product with id: {}", product.getProductId());
 
             return product;
@@ -113,7 +114,7 @@ public class ProductCompositeIntegration implements ProductService, Recommendati
         }
     }
 
-    private String getErrorMessage(HttpClientErrorException ex){
+    private String getErrorMessage(WebClientResponseException ex){
         try {
             return mapper.readValue(ex.getResponseBodyAsString(),
                     HttpErrorInfo.class).getMessage();
@@ -122,21 +123,15 @@ public class ProductCompositeIntegration implements ProductService, Recommendati
         }
     }
 
-    public List<Recommendation> getRecommendations(int productId) {
+    public Flux<Recommendation> getRecommendations(int productId) {
 
-        try {
+
             String url = recommendationServiceUrl + productId;
 
             LOG.debug("Will call getRecommendations API on URL: {}", url);
-            List<Recommendation> recommendations = restTemplate.exchange(url, GET, null, new ParameterizedTypeReference<List<Recommendation>>() {}).getBody();
-
-            LOG.debug("Found {} recommendations for a product with id: {}", recommendations.size(), productId);
-            return recommendations;
-
-        } catch (Exception ex) {
-            LOG.warn("Got an exception while requesting recommendations, return zero recommendations: {}", ex.getMessage());
-            return new ArrayList<>();
-        }
+            // Return an empty result if something goes wrong to make it possible for the composite service to return partial responses
+        return  webClient.get().uri(url).retrieve().bodyToFlux(Recommendation.class).log()
+                            .onErrorResume(error->empty());
     }
 
     @Override
@@ -168,21 +163,14 @@ public class ProductCompositeIntegration implements ProductService, Recommendati
         }
     }
 
-    public List<Review> getReviews(int productId) {
+    public Flux<Review> getReviews(int productId) {
 
-        try {
             String url = reviewServiceUrl + productId;
 
             LOG.debug("Will call getReviews API on URL: {}", url);
-            List<Review> reviews = restTemplate.exchange(url, GET, null, new ParameterizedTypeReference<List<Review>>() {}).getBody();
-
-            LOG.debug("Found {} reviews for a product with id: {}", reviews.size(), productId);
-            return reviews;
-
-        } catch (Exception ex) {
-            LOG.warn("Got an exception while requesting reviews, return zero reviews: {}", ex.getMessage());
-            return new ArrayList<>();
-        }
+            return  webClient.get().uri(url).retrieve()
+                    .bodyToFlux(Review.class).log()
+                    .onErrorResume(error->empty());
     }
 
     @Override
@@ -215,16 +203,26 @@ public class ProductCompositeIntegration implements ProductService, Recommendati
         }
     }
 
-    private RuntimeException handleHttpClientException(HttpClientErrorException ex){
-        HttpStatusCode statusCode = ex.getStatusCode();
-        if (statusCode.equals(NOT_FOUND)) {
-            return new NotFoundException(getErrorMessage(ex));
-        } else if (statusCode.equals(UNPROCESSABLE_ENTITY)) {
-            return new InvalidInputException(getErrorMessage(ex));
-        }else{LOG.warn("Got a unexpected HTTP error: {}, will rethrow it", ex.getStatusCode());
-        LOG.warn("Error body: {}", ex.getResponseBodyAsString());
-        return ex;
+
+    private Throwable handleException(Throwable ex) {
+
+        if(!(ex instanceof WebClientResponseException))
+        {
+            LOG.warn("Got a unexpected error: {}, will rethrow it", ex.toString());
+            return ex;
         }
+
+        WebClientResponseException exception= (WebClientResponseException) ex;
+
+        HttpStatusCode statusCode = exception.getStatusCode();
+        if (statusCode.equals(NOT_FOUND)) {
+            return new NotFoundException(getErrorMessage(exception));
+        } else if (statusCode.equals(UNPROCESSABLE_ENTITY)) {
+            return new InvalidInputException(getErrorMessage(exception));
+        }
+        LOG.warn("Got a unexpected HTTP error: {}, will rethrow it", exception.getStatusCode());
+        LOG.warn("Error body: {}", exception.getResponseBodyAsString());
+        return ex;
     }
 
 

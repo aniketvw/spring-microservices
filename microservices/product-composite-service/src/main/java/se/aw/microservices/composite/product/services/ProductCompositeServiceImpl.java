@@ -9,10 +9,10 @@ import se.aw.api.composite.product.*;
 import se.aw.api.core.product.Product;
 import se.aw.api.core.recommendation.Recommendation;
 import se.aw.api.core.review.Review;
-import se.aw.util.exceptions.NotFoundException;
 import se.aw.util.http.ServiceUtil;
 
 import java.util.List;
+import java.util.logging.Level;
 import java.util.stream.Collectors;
 
 @RestController
@@ -30,7 +30,7 @@ public class ProductCompositeServiceImpl implements ProductCompositeService {
 
 
     @Override
-    public ProductAggregate getProduct(int productId) {
+    public Mono<ProductAggregate> getProduct(int productId) {
         return Mono.zip(
                 values->createProductAggregate(
                         (Product) values[0],
@@ -38,8 +38,11 @@ public class ProductCompositeServiceImpl implements ProductCompositeService {
                         (List<Review>) values[2],
                         serviceUtil.getServiceAddress()
                 ),integration.getProduct(productId),
-                integration.getRecommendations(productId).collectLi
-        )
+                integration.getRecommendations(productId).collectList(),
+                integration.getReviews(productId).collectList())
+                        .doOnError(ex->LOG.warn("getCompositeProduct failed:{}",ex.toString()))
+                        .log(LOG.getName(), Level.FINE);
+
     }
 
     @Override

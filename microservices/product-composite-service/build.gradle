@@ -29,6 +29,8 @@ dependencies {
 	implementation 'org.springdoc:springdoc-openapi-starter-webflux-ui:2.6.0'
 	//webflux aur web ui lagti hi!
 
+	implementation('org.springframework.cloud:spring-cloud-starter-stream-rabbit')
+	implementation('org.springframework.cloud:spring-cloud-starter-stream-kafka')
 
 	implementation project(':api')
 	implementation project(':util')

@@ -31,6 +31,8 @@ tasks.named("bootJar") {
 dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-actuator'
 	implementation 'org.springframework.boot:spring-boot-starter-webflux'
+	implementation('org.springframework.cloud:spring-cloud-starter-stream-rabbit')
+	implementation('org.springframework.cloud:spring-cloud-starter-stream-kafka')
 	implementation project(':api')
 	implementation project(':util')
 

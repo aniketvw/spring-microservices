@@ -14,6 +14,8 @@ import se.aw.util.exceptions.InvalidInputException;
 import se.aw.util.exceptions.NotFoundException;
 import se.aw.util.http.ServiceUtil;
 
+import java.util.logging.Level;
+
 @RestController
 public class ProductServiceImpl implements ProductService {
     private static final Logger LOG = LoggerFactory.getLogger(ProductServiceImpl.class);
@@ -46,17 +48,15 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
-    public Product createProduct(Product body) {
+    public Mono<Product> createProduct(Product body) {
         if (body.getProductId() < 1) throw new InvalidInputException("Invalid productId: " + body.getProductId());
 
         ProductEntity entity=mapper.apiToEntity(body);
         Mono<Product> newEntity=repository.save(entity)
-                .log()
-                .onErrorMap(DuplicateKeyException.class,
-                        ex->new InvalidInputException("Duplicate key, ProductId:"+body.getProductId()))
+                .log(LOG.getName(), Level.FINE)
+                .onErrorMap(DuplicateKeyException.class,ex->new InvalidInputException("Duplicate key, ProductId: "+body.getProductId()))
                 .map(e->mapper.entityToApi(e));
-        return newEntity.block();
-
+        return newEntity;
 
     }
 

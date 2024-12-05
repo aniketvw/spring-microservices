@@ -38,6 +38,9 @@ dependencies {
 	testAnnotationProcessor "org.mapstruct:mapstruct-processor:${mapstructVersion}"
 	compileOnly "org.mapstruct:mapstruct-processor:${mapstructVersion}"
 
+	implementation('org.springframework.cloud:spring-cloud-starter-stream-rabbit')
+	implementation('org.springframework.cloud:spring-cloud-starter-stream-kafka')
+
 	testImplementation group: 'org.testcontainers', name: 'testcontainers', version: '1.20.1'
 	testImplementation group: 'org.testcontainers', name: 'junit-jupiter', version: '1.20.1'
 	testImplementation group: 'org.testcontainers', name: 'mongodb', version: '1.20.1'
