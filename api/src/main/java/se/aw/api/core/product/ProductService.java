@@ -15,7 +15,7 @@ public interface ProductService {
     Mono<Product> createProduct( Product body);
 
 
-    void deleteProduct(@PathVariable int productId);
+    Mono<Void> deleteProduct(@PathVariable int productId);
 
 
 

@@ -17,7 +17,6 @@ import se.aw.util.exceptions.InvalidInputException;
 import se.aw.util.http.ServiceUtil;
 
 import java.util.List;
-import java.util.List;
 import java.util.logging.Level;
 
 @RestController
@@ -40,17 +39,26 @@ public class ReviewServiceImpl implements ReviewService {private static final Lo
     }
 
     @Override
-    public Review createReview(Review body) {
-        try {
-            ReviewEntity entity = mapper.apiToEntity(body);
-            ReviewEntity newEntity = repository.save(entity);
+    public Mono<Review> createReview(Review body) {
+        if (body.getProductId() < 1) {
+            throw new InvalidInputException("Invalid productId: " + body.getProductId());
+        }
+
+        return Mono.fromCallable(()->internalCreateReview(body)).subscribeOn(jdbcScheduler);
+    }
+
+    private Review internalCreateReview(Review body) {
+
+        try{
+            ReviewEntity entity=mapper.apiToEntity(body);
+            ReviewEntity newEntity=repository.save(entity);
 
             LOG.debug("createReview: created a review entity: {}/{}", body.getProductId(), body.getReviewId());
             return mapper.entityToApi(newEntity);
-
-        } catch (DataIntegrityViolationException dive) {
+        }catch (DataIntegrityViolationException ex){
             throw new InvalidInputException("Duplicate key, Product Id: " + body.getProductId() + ", Review Id:" + body.getReviewId());
         }
+
     }
 
     @Override
@@ -67,12 +75,6 @@ public class ReviewServiceImpl implements ReviewService {private static final Lo
 
     }
 
-    @Override
-    public void deleteReviews(int productId) {
-        LOG.debug("deleteReviews: tries to delete reviews for the product with productId: {}", productId);
-        repository.deleteAll(repository.findByProductId(productId));
-    }
-
     private List internalGetReviews(int productId){
         List<ReviewEntity> entityList=repository
                 .findByProductId(productId);
@@ -83,4 +85,24 @@ public class ReviewServiceImpl implements ReviewService {private static final Lo
         return list;
 
     }
+
+    @Override
+    public Mono<Void> deleteReviews(int productId) {
+        if (productId < 1) {
+            throw new InvalidInputException("Invalid productId: " + productId);
+        }
+
+        return Mono.fromRunnable(()->internalDeleteReviews(productId)).subscribeOn(jdbcScheduler)
+                .then();
+    }
+
+    private void internalDeleteReviews(int productId) {
+
+        LOG.debug("deleteReviews: tries to delete reviews for the product with productId: {}", productId);
+
+        repository.deleteAll(repository.findByProductId(productId));
+
+    }
+
+
 }

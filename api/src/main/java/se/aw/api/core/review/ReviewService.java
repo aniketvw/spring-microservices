@@ -2,6 +2,7 @@ package se.aw.api.core.review;
 
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 import java.util.List;
 
@@ -13,10 +14,10 @@ public interface ReviewService {
     Flux<Review> getReviews(@RequestParam(value = "productId", required = true) int productId);
 
 
-    Review createReview(@RequestBody Review body);
+    Mono<Review> createReview( Review body);
 
 
-    void deleteReviews(@RequestParam(value = "productId", required = true)  int productId);
+    Mono<Void> deleteReviews( int productId);
 
 
 }

@@ -1,12 +1,12 @@
-package se.aw.microservices.core.product.services;
+package se.aw.microservices.core.recommendation.services;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import se.aw.api.core.product.Product;
-import se.aw.api.core.product.ProductService;
+import se.aw.api.core.recommendation.Recommendation;
+import se.aw.api.core.recommendation.RecommendationService;
 import se.aw.api.event.Event;
 import se.aw.util.exceptions.EventProcessingException;
 
@@ -16,34 +16,40 @@ import java.util.function.Consumer;
 public class MessageProcessorConfig {
     private static final Logger LOG = LoggerFactory.getLogger(MessageProcessorConfig.class);
 
-    private final ProductService productService;
+    private final RecommendationService recommendationService;
 
     @Autowired
-    public MessageProcessorConfig(ProductService productService){
-
-        this.productService=productService;
-
+    public MessageProcessorConfig(RecommendationService recommendationService){
+        this.recommendationService=recommendationService;
     }
 
     @Bean
-    public Consumer<Event<Integer, Product>> messageProcessor(){
+    public Consumer<Event<Integer, Recommendation>> messageProcessor(){
 
         return event->{
-            switch(event.getEventType()){
+
+            LOG.info("Process message created at {}...", event.getEventCreatedAt());
+
+
+            switch (event.getEventType()){
                 case CREATE:
-                    Product product=event.getData();
-                    productService.createProduct(product).block();
+                    Recommendation recommendation=event.getData();
+                    LOG.info("Create recommendation with ID: {}/{}", recommendation.getProductId(), recommendation.getRecommendationId());
+
+                    recommendationService.createRecommendation(recommendation).block();
                     break;
                 case DELETE:
                     int productId= event.getKey();
-                    productService.deleteProduct(productId);
+                    LOG.info("Delete recommendations with ProductID: {}", productId);
+
+                    recommendationService.deleteRecommendations(productId).block();
                     break;
                 default:
                     String errorMessage="Incorrect event type:"+
                             event.getEventType()+", expected CREATE or DELETE event";
                     throw new EventProcessingException(errorMessage);
-
             }
+
             LOG.info("Message processing done!");
 
         };

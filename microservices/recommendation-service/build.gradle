@@ -31,8 +31,8 @@ dependencies {
 	implementation project(':api')
 	implementation project(':util')
 
-	implementation('org.springframework.cloud:spring-cloud-starter-stream-rabbit')
-	implementation('org.springframework.cloud:spring-cloud-starter-stream-kafka')
+	implementation group: 'org.springframework.cloud', name: 'spring-cloud-starter-stream-rabbit', version: '4.2.0'
+	implementation group: 'org.springframework.cloud', name: 'spring-cloud-starter-stream-kafka', version: '4.2.0'
 
 	implementation "org.mapstruct:mapstruct:${mapstructVersion}"
 	implementation 'org.springframework.boot:spring-boot-starter-data-mongodb'

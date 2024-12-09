@@ -61,12 +61,12 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
-    public void deleteProduct(int productId) {
+    public Mono<Void> deleteProduct(int productId) {
         if (productId < 1) throw new InvalidInputException("Invalid productId: " + productId);
 
         LOG.debug("deleteProduct: tries to delete an entity with productId: {}", productId);
 
-        repository.findByProductId(productId).map(repository::delete).flatMap(p->p).block();
+        return  repository.findByProductId(productId).map(repository::delete).flatMap(p->p);
 
         //        repository.findByProductId(productId).log().map(repository::delete).block();
         //1. repository.findByProductId(productId).log().map(repository::delete).block();

@@ -14,8 +14,7 @@ import se.aw.microservices.core.recommendation.persistence.RecommendationReposit
 import se.aw.util.exceptions.InvalidInputException;
 import se.aw.util.http.ServiceUtil;
 
-import java.util.ArrayList;
-import java.util.List;
+import static java.util.logging.Level.FINE;
 
 @RestController
 public class RecommendationServiceImpl implements RecommendationService {
@@ -39,8 +38,10 @@ public class RecommendationServiceImpl implements RecommendationService {
     public Flux<Recommendation> getRecommendations(int productId) {
 
         if (productId < 1) throw new InvalidInputException("Invalid productId: " + productId);
+        LOG.info("Will get recommendations for product with id={}", productId);
 
-        return repository.findByProductId(productId).log().map(mapper::entityToApi).
+
+        return repository.findByProductId(productId).log(LOG.getName(), FINE).map(mapper::entityToApi).
                 map(r->{
                     r.setServiceAddress(serviceUtil.getServiceAddress());
                     return r;
@@ -52,21 +53,24 @@ public class RecommendationServiceImpl implements RecommendationService {
     }
 
     @Override
-    public Recommendation createRecommendation(Recommendation body) {
+    public Mono<Recommendation> createRecommendation(Recommendation body) {
         if (body.getProductId() < 1) throw new InvalidInputException("Invalid productId: " + body.getProductId());
 
         RecommendationEntity entity=mapper.apiToEntity(body);
 
-        Mono<Recommendation> newEntity=repository.save(entity).log()
+        Mono<Recommendation> newEntity=repository.save(entity).log(LOG.getName(), FINE)
                 .onErrorMap(DuplicateKeyException.class, ex->new InvalidInputException("Duplicate key, Product Id: " + body.getProductId() + ", Recommendation Id:" + body.getRecommendationId()))
                 .map(r->mapper.entityToApi(r));
-        return newEntity.block();
-
+        return newEntity;
     }
 
     @Override
-    public void deleteRecommendations(int productId) {
+    public Mono<Void> deleteRecommendations(int productId) {
+        if (productId < 1) {
+            throw new InvalidInputException("Invalid productId: " + productId);
+        }
         LOG.debug("deleteRecommendations: tries to delete recommendations for the product with productId: {}", productId);
-        repository.deleteAll(repository.findByProductId(productId));
+        return repository.deleteAll(repository.findByProductId(productId));
+
     }
 }

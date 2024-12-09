@@ -1,13 +1,20 @@
 package se.aw.api.event;
 
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import com.fasterxml.jackson.datatype.jsr310.ser.ZonedDateTimeSerializer;
+import lombok.Getter;
+
 import java.time.LocalDateTime;
 
 public class Event<K,T> {
 
     public enum Type{CREATE,DELETE}
 
+    @Getter
     private Event.Type eventType;
+    @Getter
     private K key;
+    @Getter
     private T data;
     private LocalDateTime eventCreatedAt;
 
@@ -26,18 +33,7 @@ public class Event<K,T> {
         this.eventCreatedAt=LocalDateTime.now();
     }
 
-    public Type getEventType() {
-        return eventType;
-    }
-
-    public K getKey() {
-        return key;
-    }
-
-    public T getData() {
-        return data;
-    }
-
+    @JsonSerialize(using = ZonedDateTimeSerializer.class)
     public LocalDateTime getEventCreatedAt() {
         return eventCreatedAt;
     }

@@ -6,6 +6,16 @@ spring.data.mongodb:
   port: 27017
   database: product-db
 
+spring.cloud.function.definition: messageProcessor
+
+spring.cloud.stream:
+  defaultBinder: rabbit
+  default.contentType: application/json
+  bindings.messageProcessor-in-0:
+    destination: products
+    group: productsGroup
+
+
 logging:
   level:
     root: INFO
